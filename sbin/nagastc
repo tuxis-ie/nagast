@@ -1,0 +1,50 @@
+#!/usr/bin/perl -w
+
+use strict;
+use IO::Socket::SSL;
+use Getopt::Long;
+
+my $raddress = '';
+my $rport = 10041;
+my ($host, $service, $state, $recipient);
+
+sub usage {
+    print "Stuk!\n";
+    exit;
+}
+
+my $optres = GetOptions(
+    "rport=i" => \$rport,
+    "raddress=s" => \$raddress,
+    "host=s" => \$host,
+    "service=s" => \$service,
+    "state=s" => \$state,
+    "to=s" => \$recipient,
+    );
+
+if (!defined($recipient) || $recipient eq '' ||
+    !defined($state) || $state eq '' ||
+    !defined($host) || $host eq '') {
+    usage();
+}
+
+my ($v_mode, $sock, $buf);
+
+if(!($sock = IO::Socket::SSL->new( PeerAddr => 'localhost',
+        PeerPort => '10041',
+        Proto    => 'tcp',
+    ))) {
+    warn "unable to create socket: ", &IO::Socket::SSL::errstr, "\n";
+    exit(0);
+} else {
+    warn "connect ($sock).\n" if ($IO::Socket::SSL::DEBUG);
+}
+
+print $sock "NEWCALL $recipient\n";
+print $sock "HOST $host\n";
+print $sock "SERVICE $service\n" if (defined($service) && $service ne '');
+print $sock "STATE $state\n";
+print $sock "\n";
+
+my $data = <$sock>;
+print "R: ".$data."\n";

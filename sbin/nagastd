@@ -1,0 +1,338 @@
+#!/usr/bin/perl -w
+
+use strict;
+use IO::Socket::SSL;
+use Data::Dumper;
+use Getopt::Long;
+use File::Temp qw(tempfile);
+use CGI::Util qw(escape);
+use LWP::UserAgent;
+use LWP::ConnCache;
+use File::Copy;
+use Asterisk::Outgoing;
+
+$| = 1;
+
+my $asteriskuser = 'asterisk';
+my $calltimeout = 5;
+my %callqueue;
+my %seennode;
+my $mode;
+my $lport = 10042;
+my $laddress = '::';
+my $rport = 10042;
+my $raddress;
+my $debug = 0;
+my $language = 'en';
+my $spooldir = '/var/spool/nagiosmessages/';
+my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
+my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
+
+my $speed   = 1.1;
+my $tmpdir  = "/tmp";
+my $timeout = 10;
+my $url     = "http://translate.google.com/translate_tts";
+my $mpg123  = `/usr/bin/which mpg123`;
+my $sox     = `/usr/bin/which sox`;
+my $hostname = `/bin/hostname`;
+
+chomp($mpg123, $sox, $hostname);
+
+sub usage {
+    print "Fout!";
+    exit 3;
+}
+if (!defined($ARGV[0]) || $ARGV[0] !~ m/^(master|node)$/) {
+    usage();
+} else {
+    $mode = $ARGV[0];
+    if ($mode eq 'node') {
+        $lport = 10041;
+    }
+}
+
+shift;
+
+my $optres = GetOptions(
+    "lport=i" => \$lport,
+    "laddress=s" => \$laddress,
+    "rport=i" => \$rport,
+    "raddress=s" => \$raddress,
+    "debug" => \$debug,
+    "lang=s" => \$language,
+    "sslcert=s" => \$sslcert,
+    "sslkey=s" => \$sslkey,
+    );
+
+if ($debug > 0) {
+    $IO::Socket::SSL::DEBUG = 1;
+}
+
+if ($mode eq "node" && (!defined($raddress) || $raddress eq "")) {
+    usage();
+}
+
+my ($alogin,$apass,$auid,$agid);
+
+if ($mode eq "master") {
+    ($alogin,$apass,$auid,$agid) = getpwnam($asteriskuser) or die "Cannot find user $asteriskuser";
+}
+
+my ($ssock, $iconn, $oconn);
+
+if(!($ssock = IO::Socket::SSL->new(
+        Listen => 5,
+        LocalAddr => $laddress,
+        LocalPort => $lport,
+        Proto     => 'tcp',
+        Reuse     => 1,
+        SSL_key_file => $sslkey,
+        SSL_cert_file => $sslcert,
+        SSL_verify_mode => 0x01,
+        )) ) {
+    warn "unable to create socket: ", &IO::Socket::SSL::errstr, "\n";
+    exit(0);
+}
+
+$SIG{ALRM} = sub {
+    foreach my $number (keys(%callqueue)) {
+        my $out = new Asterisk::Outgoing;
+        $out->setvariable('Channel', 'SIP/'.$number);
+        $out->setvariable('MaxRetries', 3);
+        $out->setvariable('RetryTime', 60);
+        $out->setvariable('WaitTime', 45);
+        $out->setvariable('Application', 'AGI');
+        $out->setvariable('Data', 'nagios.agi');
+        $out->create_outgoing;
+
+        chown($auid,$agid,glob('/var/spool/asterisk/outgoing/*'));
+
+        delete($callqueue{$number});
+    }
+
+    my $now = time();
+
+    if ($mode eq "node") {
+        node_process_command(undef, ('PING '.$hostname));
+    }
+
+    if ($mode eq "master") {
+        foreach my $node (keys %seennode) {
+            print "Checking node $node\n";
+            print "Last seen $seennode{$node}\n";
+            if ($now-$seennode{$node} > 10) {
+                master_process_command(undef, ('SERVICE Nagast', 'HOST Enoclue', 'STATE Critical', 'NEWCALL 700'));
+                print "Node too long away\n";
+                delete($seennode{$node});
+            }
+        }
+    }
+    alarm $calltimeout;
+};
+
+alarm $calltimeout;
+
+sub handle_ping {
+    my ($cs, $hostname) = @_;
+
+    $hostname =~ s/PING //;
+    $seennode{$hostname} = time();
+
+    respond($cs, 'PONG');
+}
+
+sub respond {
+    my ($cs, $rcode) = @_;
+
+    if (!defined($cs)) {
+        return;
+    }
+
+    my $responds = {
+        'ACK' => '200 ACK',
+        'PONG' => '200 THANKS FOR PINGING',
+        'FATAL' => '500 FATAL ERROR',
+        'U_FATAL' => '500 UNKNOWN FATAL ERROR',
+        'INSUFPARAM' => '500 INSUFFICIENT PARAMETERS',
+        'RETRY' => '400 TRY AGAIN LATER',
+        'UNKN' => '500 THE SERVER RETURNED AN UNKNOWN ERRORCODE',
+        'EPROXY' => '503 PROXY ERROR. COULD NOT REACH MASTER',
+    };
+
+    if (defined($responds->{$rcode})) {
+        print $cs $responds->{$rcode}."\n";
+    } else {
+        print $cs $responds->{'UNKN'}.": $rcode";
+    }
+}
+
+sub master_process_command {
+    my ($cs, @command) = @_;
+    my (%vars, $outline, @text, @mp3list, @soxargs);
+
+    foreach (@command) {
+        my ($var, $val) = split(/\W/, $_, 2);
+        $vars{$var} = $val;
+    }
+
+    if (!defined($vars{'NEWCALL'})) {
+        respond($cs, 'FATAL');
+        return;
+    }
+
+    if (defined($vars{'SERVICE'})) {
+        $outline = 'Service '.$vars{'SERVICE'}.' on host '.$vars{'HOST'}. ' has state: '.$vars{'STATE'}.'.';
+    } else {
+        $outline = 'Host '.$vars{'HOST'}. ' is '.$vars{'STATE'}.'.';
+    }
+
+    for ($outline) {
+        # Split input to comply with google tts requirements #
+        s/[\\|*~<>^\n\(\)\[\]\{\}[:cntrl:]]/ /g;
+        s/\s+/ /g;
+        s/^\s|\s$//g;
+        $_ .= "." unless (/^.+[.,?!:;]$/);
+        @text = /.{1,100}[.,?!:;]|.{1,100}\s/g;
+    }
+
+    my $ua = LWP::UserAgent->new;
+    $ua->agent("Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20100101");
+    $ua->env_proxy;
+    $ua->conn_cache(LWP::ConnCache->new());
+    $ua->timeout($timeout);
+
+    foreach my $line (@text) {
+        # Get speech data from google and save them in temp files #
+        $line =~ s/^\s+|\s+$//g;
+        next if (length($line) == 0);
+        $line = escape($line);
+        my ($mp3_fh, $mp3_name) = tempfile(
+            "tts_XXXXXX",
+            DIR    => $tmpdir,
+            SUFFIX => ".mp3",
+            UNLINK => 1
+        );
+        my $request = HTTP::Request->new('GET' => "$url?tl=$language&q=$line");
+        my $response = $ua->request($request, $mp3_name);
+        if (!$response->is_success) {
+            respond('FATAL');
+        } else {
+            push(@mp3list, $mp3_name);
+        }
+    }
+
+    my ($wav_fh, $wav_name) = tempfile(
+        "tts_XXXXXX",
+        DIR    => $tmpdir,
+        SUFFIX => ".wav",
+        UNLINK => 1
+    );
+    system($mpg123, "-q", "-w", $wav_name, @mp3list);
+
+    @soxargs = ($sox, "-q", $wav_name);
+
+    my $randnr = int(rand(10000));
+
+    while (-f $spooldir.'/tmp/'.$randnr) {
+        $randnr = int(rand(10000));
+    }
+
+    my $tmpfile = $spooldir.'/tmp/'.$randnr.'.gsm';
+    my $dstfile = $spooldir.'/new/'.$vars{'NEWCALL'}.'-'.$randnr.'.gsm';
+    push(@soxargs, ($tmpfile));
+    push(@soxargs, ("tempo", "-s", $speed)) if ($speed != 1);
+    push(@soxargs, ("rate", "8000"));
+
+    if (system(@soxargs) == 0) {
+        move($tmpfile, $dstfile) or die "Move failed $!";
+        chown($auid,$agid,$dstfile);
+
+        $callqueue{$vars{'NEWCALL'}} = 1;
+
+        respond($cs, 'ACK');
+    } else {
+        respond($cs, 'FATAL');
+    }
+}
+
+sub node_process_command {
+    my ($cs, @command) = @_;
+    my (%vars, $outline);
+
+    if(!($oconn = IO::Socket::SSL->new( PeerAddr => $raddress,
+        PeerPort => $rport,
+        Proto    => 'tcp',
+    ))) {
+        respond($cs, 'EPROXY');
+        return;
+    }
+
+    foreach (@command) {
+        my ($var, $val) = split(/\W/, $_, 2);
+        print $oconn $var." ".$val."\n";
+    }
+
+    print $oconn "\n";
+
+    my $rdata = <$oconn>;
+    if ($rdata =~ m/^200/) {
+        respond($cs, 'ACK');
+    } else {
+        respond($cs, $rdata);
+    }
+    $oconn->close();
+}
+
+sub run_master {
+	while (1) {
+	    while ($iconn = $ssock->accept()) {
+	        my @command;
+	        while (my $input = <$iconn>) {
+	            chomp($input);
+	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE) /) {
+	                push(@command, $input);
+                } elsif ($input =~ m/^PING/) {
+	                handle_ping($iconn, $input);
+	            } elsif ($input =~ m/^$/) {
+	                if ($#command < 2) {
+	                    respond($iconn, 'INSUFPARAM');
+	                    @command = ();
+	                } else {
+	                    master_process_command($iconn, @command);
+	                    @command = ();
+	                }
+	            }
+	        }
+	    }
+	}
+}
+
+sub run_node {
+	while (1) {
+	    while ($iconn = $ssock->accept()) {
+	        my @command;
+	        while (my $input = <$iconn>) {
+	            chomp($input);
+	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE) /) {
+	                push(@command, $input);
+	            } elsif ($input =~ m/^$/) {
+	                if ($#command < 2) {
+	                    respond($iconn, 'INSUFPARAM');
+	                    @command = ();
+	                } else {
+	                    node_process_command($iconn, @command);
+	                    @command = ();
+	                }
+	            }
+	        }
+	    }
+	}
+}
+
+if ($mode eq "master") {
+    run_master();
+} elsif ($mode eq "node") {
+    run_node();
+}
+
+$ssock->close();

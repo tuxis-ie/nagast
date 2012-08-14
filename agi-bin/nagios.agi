@@ -1,0 +1,134 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Asterisk::AGI;
+use File::Copy;
+use Asterisk::Outgoing;
+use Data::Dumper;
+
+my $asteriskuser = 'asterisk';
+my $shit_hits_fan_at = 4;
+my $shit_hits_fan_sample = '/usr/share/nagast/samples/shit_has_hit_the_fan';
+my $press_one_to_ack_sample = '/usr/share/nagast/samples/press_one_to_ack';
+my $press_pound_to_start_sample = '/usr/share/nagast/samples/press_pound_to_start';
+my $thank_you_sample = '/usr/share/nagast/samples/thank_you';
+
+my ($alogin,$apass,$auid,$agid) = getpwnam($asteriskuser) or die "Cannot find user $asteriskuser";
+my $AGI = new Asterisk::AGI;
+
+my %input = $AGI->ReadParse();
+
+my $callerid = $input{'channel'};
+
+$callerid =~ s/.*\/(\d+).*/$1/;
+
+my $spooldir = '/var/spool/nagiosmessages/';
+
+sub find_files {
+    opendir(my $dh, $spooldir.'/new/');
+
+    my @ret;
+
+    foreach my $msgid (grep { /^$callerid-.*/ } readdir($dh)) {
+        $msgid =~ s/\.(wav|gsm)//i;
+        push(@ret, $msgid);
+    }
+
+    return @ret;
+}
+
+sub get_ack {
+    my $tries = 0;
+    my $maxtries = 3;
+
+    while ($tries < $maxtries) {
+        $tries++;
+        my $ack = 0;
+        $ack = $AGI->stream_file($press_one_to_ack_sample, 1);
+
+        if ($ack == 0) {
+            $ack = $AGI->wait_for_digit(5000);
+        }
+
+        if ($ack >= 1) {
+            return 1;
+        }
+
+    }
+
+    return 0;
+}
+
+sub ack_msg {
+    my $msg = shift;
+    move($spooldir.'/new/'.$msg.'.gsm', $spooldir.'/ack/'.$msg) or $AGI->verbose("Failed to ack message $msg: $!", 1);
+}
+
+sub get_active_call {
+    my $tries = 0;
+    my $maxtries = 3;
+
+    while ($tries < $maxtries) {
+        $tries++;
+        my $ack = 0;
+        $ack = $AGI->stream_file($press_pound_to_start_sample,'#');
+
+        if ($ack == 0) {
+            $ack = $AGI->wait_for_digit(3000);
+        }
+
+        if ($ack >= 1) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+my @queuedmsg = find_files();
+
+if ($#queuedmsg >= 0 && get_active_call() == 0) {
+    $AGI->verbose("Nobody bothered to pickup or press the pound key. Hangup and try again.", 1);
+    $AGI->hangup();
+
+    sleep 1;
+
+    my $out = new Asterisk::Outgoing;
+    $out->setvariable('Channel', 'SIP/700');
+    $out->setvariable('MaxRetries', 3);
+    $out->setvariable('RetryTime', 60);
+    $out->setvariable('WaitTime', 45);
+    $out->setvariable('Application', 'AGI');
+    $out->setvariable('Data', 'nagios.agi');
+    $out->create_outgoing;
+
+    chown($auid,$agid,glob('/var/spool/asterisk/outgoing/*'));
+
+    exit;
+}
+
+
+if ($#queuedmsg >= $shit_hits_fan_at) {
+    $AGI->stream_file($shit_hits_fan_sample, '#');
+
+    if (get_ack() == 1) {
+        foreach my $message (@queuedmsg) {
+            ack_msg($message);
+        }
+    }
+} elsif ($#queuedmsg >= 0) {
+    foreach my $message (@queuedmsg) {
+        $AGI->stream_file($spooldir.'/new/'.$message, '#');
+        if (get_ack() == 1) {
+            ack_msg($message);
+            @queuedmsg = find_files();
+        } else {
+            $AGI->hangup();
+            exit;
+        }
+    }
+} else {
+    $AGI->hangup();
+}
+
+$AGI->stream_file($thank_you_sample);

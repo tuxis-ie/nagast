@@ -1,0 +1,8 @@
+
+* Clean up code and improve readability
+* Create different libraries for master- and node-mode
+* Try to prevent useless calls
+* Actually ack the Nagios issues
+* Fix packaging for the main distros
+* Create authentication
+* Fix logging of some kind
