@@ -1,0 +1,148 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use IO::Socket::SSL;
+use Getopt::Long;
+
+$| = 1;
+
+my $pingtimeout = 30;
+my $lport = 10041;
+my $laddress = '::';
+my $rport = 10042;
+my $raddress;
+my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
+my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
+
+my $hostname = `/bin/hostname`;
+
+chomp($hostname);
+
+sub usage {
+    warn "`nagast-node` takes the following options:
+--laddress <listenhost>    (optional, defaults to ::)
+--lport <listenport>       (optional, defaults to 10041)
+--raddress <remotehost>    (required)
+--rport <remoteport>       (optional, defaults to 10042)
+--sslcert <pathtocert>     (optional, defaults to $sslcert)
+--sslkey <pathtokey>       (optional, defaults to $sslkey)
+\n";
+    exit 3;
+}
+
+my $optres = GetOptions(
+    "lport=i" => \$lport,
+    "laddress=s" => \$laddress,
+    "rport=i" => \$rport,
+    "raddress=s" => \$raddress,
+    "sslcert=s" => \$sslcert,
+    "sslkey=s" => \$sslkey,
+    );
+
+if (!defined($raddress) || $raddress eq "") {
+    usage();
+}
+
+my ($ssock, $iconn, $oconn);
+
+if(!($ssock = IO::Socket::SSL->new(
+        Listen => 5,
+        LocalAddr => $laddress,
+        LocalPort => $lport,
+        Proto     => 'tcp',
+        Reuse     => 1,
+        SSL_key_file => $sslkey,
+        SSL_cert_file => $sslcert,
+        SSL_verify_mode => 0x01,
+        )) ) {
+    warn "Unable to create listening socket on ".$laddress.":".$lport.": ", &IO::Socket::SSL::errstr, "\n";
+    exit(1);
+}
+
+$SIG{ALRM} = sub {
+    node_process_command(undef, ('PING '.$pingtimeout.' '.$hostname));
+
+    alarm $pingtimeout;
+};
+
+alarm $pingtimeout;
+
+sub respond {
+    my ($cs, $rcode) = @_;
+
+    if (!defined($cs)) {
+        return;
+    }
+
+    my $responds = {
+        'ACK' => '200 ACK',
+        'PONG' => '200 THANKS FOR PINGING',
+        'FATAL' => '500 FATAL ERROR',
+        'U_FATAL' => '500 UNKNOWN FATAL ERROR',
+        'INSUFPARAM' => '500 INSUFFICIENT PARAMETERS',
+        'RETRY' => '400 TRY AGAIN LATER',
+        'UNKN' => '500 THE SERVER RETURNED AN UNKNOWN ERRORCODE',
+        'EPROXY' => '503 PROXY ERROR. COULD NOT REACH MASTER',
+    };
+
+    if (defined($responds->{$rcode})) {
+        print $cs $responds->{$rcode}."\n";
+    } else {
+        print $cs $responds->{'UNKN'}.": $rcode";
+    }
+}
+
+sub node_process_command {
+    my ($cs, @command) = @_;
+    my (%vars, $outline);
+
+    if(!($oconn = IO::Socket::SSL->new( PeerAddr => $raddress,
+        PeerPort => $rport,
+        Proto    => 'tcp',
+    ))) {
+        respond($cs, 'EPROXY');
+        return;
+    }
+
+    foreach (@command) {
+        my ($var, $val) = split(/\W/, $_, 2);
+        print $oconn $var." ".$val."\n";
+    }
+
+    print $oconn "\n";
+
+    my $rdata = <$oconn>;
+    if ($rdata =~ m/^200/) {
+        respond($cs, 'ACK');
+    } else {
+        respond($cs, $rdata);
+    }
+    $oconn->close();
+}
+
+sub run_node {
+	while (1) {
+	    while ($iconn = $ssock->accept()) {
+	        my @command;
+	        while (my $input = <$iconn>) {
+	            chomp($input);
+	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE) /) {
+	                push(@command, $input);
+	            } elsif ($input =~ m/^$/) {
+	                if ($#command < 2) {
+	                    respond($iconn, 'INSUFPARAM');
+	                    @command = ();
+	                } else {
+	                    node_process_command($iconn, @command);
+	                    @command = ();
+	                }
+	            }
+	        }
+	    }
+	}
+}
+
+run_node();
+
+$ssock->close();
