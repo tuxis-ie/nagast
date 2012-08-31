@@ -108,7 +108,7 @@ sub handle_ping {
     my $interval = $1;
     my $hostname = $2;
 
-    if ((!defined($interval) || $interval == "")
+    if ((!defined($interval) || $interval == "") ||
         (!defined($hostname) || $hostname == "")) {
         respond($cs, 'INSUFPARAM');
         return;
