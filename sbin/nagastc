@@ -42,7 +42,7 @@ if(!($sock = IO::Socket::SSL->new( PeerAddr => $raddress,
         PeerPort => $rport,
         Proto    => 'tcp',
     ))) {
-    warn "Unable to connect to ".$raddress:.":".$rport.": ", &IO::Socket::SSL::errstr, "\n";
+    warn "Unable to connect to ".$raddress.":".$rport.": ", &IO::Socket::SSL::errstr, "\n";
     exit(1);
 }
 
