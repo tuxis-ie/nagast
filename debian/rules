@@ -3,6 +3,7 @@
 
 NC_BUILD_ROOT=$(CURDIR)/debian/nagast-client
 NS_BUILD_ROOT=$(CURDIR)/debian/nagast-server
+NN_BUILD_ROOT=$(CURDIR)/debian/nagast-node
 install:
 	rm -rf ${NC_BUILD_ROOT}
 	mkdir -p ${NC_BUILD_ROOT}/usr/sbin/
@@ -10,15 +11,21 @@ install:
 
 	rm -rf ${NS_BUILD_ROOT}
 	mkdir -p ${NS_BUILD_ROOT}/usr/sbin/
-	install -m 755 sbin/nagastd ${NS_BUILD_ROOT}/usr/sbin/nagastd
+	install -m 755 sbin/nagast-server ${NS_BUILD_ROOT}/usr/sbin/nagast-server
 	mkdir -p ${NS_BUILD_ROOT}/usr/share/nagast/samples/
 	cp samples/* ${NS_BUILD_ROOT}/usr/share/nagast/samples/
 	mkdir -p ${NS_BUILD_ROOT}/etc/init/
-	install -m 640 init/nagastd-master.conf ${NS_BUILD_ROOT}/etc/init/nagastd-master.conf
-	install -m 640 init/nagastd-node.conf ${NS_BUILD_ROOT}/etc/init/nagastd-node.conf
+	install -m 640 init/nagast-server.conf ${NS_BUILD_ROOT}/etc/init/nagast-server.conf
 	mkdir -p ${NS_BUILD_ROOT}/usr/share/asterisk/agi-bin/
 	install -m 750 agi-bin/nagios.agi ${NS_BUILD_ROOT}/usr/share/asterisk/agi-bin/nagios.agi
-	mkdir -p ${NS_BUILD_ROOT}/var/spool/nagiosmessages/{ack,new,tmp}
+	mkdir -p ${NS_BUILD_ROOT}/var/spool/nagiosmessages/ack
+	mkdir -p ${NS_BUILD_ROOT}/var/spool/nagiosmessages/new
+	mkdir -p ${NS_BUILD_ROOT}/var/spool/nagiosmessages/tmp
+
+	rm -rf ${NN_BUILD_ROOT}
+	mkdir -p ${NN_BUILD_ROOT}/usr/sbin/
+	install -m 755 sbin/nagast-node ${NN_BUILD_ROOT}/usr/sbin/nagast-node
+	install -m 640 init/nagast-node.conf ${NN_BUILD_ROOT}/etc/init/nagast-node.conf
 
 build:
 binary-indep:
