@@ -31,6 +31,7 @@ my $optres = GetOptions(
     );
 
 if (!defined($recipient) || $recipient eq '' ||
+    !defined($raddress) || $raddress eq '' ||
     !defined($state) || $state eq '' ||
     !defined($host) || $host eq '') {
     usage();
