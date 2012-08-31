@@ -1,0 +1,19 @@
+Source: nagast
+Section: misc
+Priority: optional
+Maintainer: Mark Schouten <mark@tuxis.nl>
+Standards-Version: 3.7.2
+
+Package: nagast-client
+Architecture: all
+Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl
+Suggests: nagios
+Description: Send commands to the nagast-server
+ Install this package on your Nagios-server so it can contact the nagast-server and place a call for you.
+
+Package: nagast-server
+Architecture: all
+Pre-Depends: asterisk
+Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules, libwww-perl
+Description: Place calls through Asterisk, initiated by the nagast-client
+ Places calls in the Asterisk-queue, placed by the nagast-client. Install this on your Asterisk server.

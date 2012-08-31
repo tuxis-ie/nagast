@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+
+BUILD_ROOT=$(CURDIR)/debian/nagastc-tmp
+install:
+	rm -rf ${BUILD_ROOT}
+    mkdir ${BUILD_ROOT}/usr/sbin/
+    install -m 755 sbin/nagastc ${BUILD_ROOT}/usr/sbin/nagastc
+
+
+build:
+binary-indep:
+
+binary-arch binary: build install
+	if [ -d ${BUILD_ROOT} ] ; then dh_install --sourcedir=${BUILD_ROOT} ; fi
+	dh_installdocs
+	dh_installdeb
+	dh_compress
+	dh_fixperms
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+.PHONY: build binary binary-arch binary-indep clean install
