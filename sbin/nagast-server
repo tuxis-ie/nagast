@@ -25,6 +25,7 @@ my $outchannel = 'SIP';
 my $outcid = '';
 my $language = 'en';
 my $spooldir = '/var/spool/nagiosmessages/';
+my $outdir = '/var/spool/asterisk/outgoing/';
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
 my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
 
@@ -90,19 +91,22 @@ if(!($ssock = IO::Socket::SSL->new(
 }
 
 $SIG{ALRM} = sub {
-    foreach my $number (keys(%callqueue)) {
-        my $out = new Asterisk::Outgoing;
-        $out->setvariable('Channel', $outchannel.'/'.$number);
-        $out->setvariable('CallerID', '"Nagast <'.$outcid.'>"');
-        $out->setvariable('MaxRetries', 3);
-        $out->setvariable('RetryTime', 60);
-        $out->setvariable('WaitTime', 45);
-        $out->setvariable('Application', 'AGI');
-        $out->setvariable('Data', 'nagios.agi,'.$outchannel.','.$number);
-        $out->create_outgoing;
+    foreach my $uuid (keys(%callqueue)) {
+        my $number = $callqueue{$uuid};
+        my $tmpfile = $spooldir.'/'.$uuid.'call';
+        my $dstfile = $outdir.'/'.$uuid.'call';
+        open TMPFILE, "+>$tmpfile";
+        print TMPFILE 'Channel:', $outchannel.'/'.$number."\n";
+        print TMPFILE 'CallerID: "Nagast <'.$outcid.'>"'."\n";
+        print TMPFILE 'MaxRetries: 3'."\n";
+        print TMPFILE 'RetryTime: 60'."\n";
+        print TMPFILE 'WaitTime: 45'."\n";
+        print TMPFILE 'Application: AGI'."\n";
+        print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number.','.$uuid."\n";
+        close(TMPFILE);
 
-        chown($auid,$agid,glob('/var/spool/asterisk/outgoing/*'));
-
+        move($tmpfile, $dstfile) or die "Move failed $!";
+        chown($auid,$agid,$dstfile);
         delete($callqueue{$number});
     }
 
@@ -174,7 +178,7 @@ sub master_process_command {
         $vars{$var} = $val;
     }
 
-    if (!defined($vars{'NEWCALL'})) {
+    if (!defined($vars{'NEWCALL'}) || !defined($vars{'ID'})) {
         respond($cs, 'FATAL');
         return;
     }
@@ -230,11 +234,7 @@ sub master_process_command {
 
     @soxargs = ($sox, "-q", $wav_name);
 
-    my $randnr = int(rand(10000));
-
-    while (-f $spooldir.'/tmp/'.$randnr) {
-        $randnr = int(rand(10000));
-    }
+    my $randnr = $vars{'ID'};
 
     my $tmpfile = $spooldir.'/tmp/'.$randnr.'.gsm';
     my $dstfile = $spooldir.'/new/'.$vars{'NEWCALL'}.'-'.$randnr.'.gsm';
@@ -246,7 +246,7 @@ sub master_process_command {
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
 
-        $callqueue{$vars{'NEWCALL'}} = 1;
+        $callqueue{$vars{'ID'}} = $vars{'NEWCALL'};
 
         respond($cs, 'ACK');
     } else {
@@ -260,7 +260,7 @@ sub run_master {
 	        my @command;
 	        while (my $input = <$iconn>) {
 	            chomp($input);
-	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE) /) {
+	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE|ID) /) {
 	                push(@command, $input);
                 } elsif ($input =~ m/^PING/) {
 	                handle_ping($iconn, $input);

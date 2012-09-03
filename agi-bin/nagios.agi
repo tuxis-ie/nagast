@@ -21,6 +21,7 @@ my $outchannel = $ARGV[0];
 my $callerid = $ARGV[1];
 
 my $spooldir = '/var/spool/nagiosmessages/';
+my $outdir = '/var/spool/asterisk/outgoing/';
 
 sub find_files {
     opendir(my $dh, $spooldir.'/new/');
@@ -59,6 +60,7 @@ sub get_ack {
 
 sub ack_msg {
     my $msg = shift;
+    unlink($outdir.'/'.$msg.'.call');
     move($spooldir.'/new/'.$msg.'.gsm', $spooldir.'/ack/'.$msg) or $AGI->verbose("Failed to ack message $msg: $!", 1);
 }
 

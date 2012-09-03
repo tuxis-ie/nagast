@@ -20,6 +20,6 @@ Description: Place calls through Asterisk, initiated by the nagast-node or nagas
 
 Package: nagast-node
 Architecture: all
-Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules
+Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules, libossp-uuid-perl
 Description: Communicatie with the nagasg-server
  Places calls in the nagast-server-queue, initiated by the nagast-client. Install this on your Nagios server.
