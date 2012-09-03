@@ -60,8 +60,10 @@ sub get_ack {
 
 sub ack_msg {
     my $msg = shift;
+    my $uuid = $msg;
+    $uuid =~ s/$callerid-//;
     unlink($outdir.'/'.$msg.'.call');
-    move($spooldir.'/new/'.$msg.'.gsm', $spooldir.'/ack/'.$msg) or $AGI->verbose("Failed to ack message $msg: $!", 1);
+    move($spooldir.'/new/'.$msg.'.gsm', $spooldir.'/ack/'.$uuid) or $AGI->verbose("Failed to ack message $msg: $!", 1);
 }
 
 sub get_active_call {

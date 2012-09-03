@@ -14,6 +14,7 @@ my $laddress = '::';
 my $rport = 10042;
 my $raddress;
 my $help;
+my %notifications;
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
 my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
 my $uuidgen = new Data::UUID;
@@ -115,18 +116,32 @@ sub node_process_command {
     }
 
     my $uuidstring = $uuidgen->create();
+    my $uuid = $uuidgen->to_string($uuidstring);
+
     foreach (@command) {
         my ($var, $val) = split(/\W/, $_, 2);
         print $oconn $var." ".$val."\n";
     }
 
     print $oconn "HOSTNAME ".$hostname."\n";
-    print $oconn "ID ".$uuidgen->to_string($uuidstring)."\n";
+    print $oconn "ID ".$uuid."\n";
     print $oconn "\n";
+
+    $notifications{$uuid} = {
+            'HOST' => $var{'HOST'},
+            'CALLERID' => $var{'NEWCALL'},
+    };
+
+    if (defined($vars{'SERVICE'})) {
+        $notifications{$uuid}{'SERVICE'} = $var{'SERVICE'};
+    }
 
     while (my $rdata = <$oconn>) {
         if ($rdata =~ m/^ACKED /) {
-            print "$rdata";
+            chomp($rdata);
+            my $uuid = $rdata;
+            $uuid =~ s/ACKED //;
+            handle_ack($uuid);
         } elsif ($rdata =~ m/^200/) {
             respond($cs, 'ACK');
         } else {
@@ -136,17 +151,41 @@ sub node_process_command {
     $oconn->close();
 }
 
-#sub node_ack_nagios_host {
-#    my $now = time();
-#
-#    print NAGSOCK "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr"
-#}
-#
-#sub node_ack_nagios_svc {
-#    my $now = time();
-#
-#    print NAGSOCK "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;1;1;NagAst;Acked by $acknr"
-#}
+sub handle_ack {
+    my ($uuid) = @_;
+
+    if (defined($notifications{$uuid})) {
+        my $tonagios = "";
+        if (defined($notifications{$uuid}{'SERVICE'})) {
+            $tonagios = node_ack_nagios_svc($notifications{$uuid});
+        } else {
+            $tonagios = node_ack_nagios_host($notifications{$uuid});
+        }
+
+        print "Sending this string to Nagios: $tonagios\n";
+    }
+}
+
+sub node_ack_nagios_host {
+    my ($uuid) = @_;
+
+    my $ackhost = $notifications{$uuid}{'HOST'};
+    my $acknr   = $notifications{$uuid}{'CALLERID'};
+    my $now = time();
+
+    return "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr";
+}
+
+sub node_ack_nagios_svc {
+    my ($uuid) = @_;
+
+    my $ackhost = $notifications{$uuid}{'HOST'};
+    my $acknr   = $notifications{$uuid}{'CALLERID'};
+    my $acksvc  = $notifications{$uuid}{'SERVICE'};
+    my $now = time();
+
+    return "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;1;1;NagAst;Acked by $acknr"
+}
 
 sub run_node {
 	while (1) {

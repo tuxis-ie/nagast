@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use IO::Socket::SSL;
+use Data::Dumper;
 use Getopt::Long;
 use File::Temp qw(tempfile);
 use CGI::Util qw(escape);
@@ -132,12 +133,13 @@ sub find_ack {
     my @ret;
 
     foreach my $msgid (grep { /.*_$ackhost$/ } readdir($dh)) {
-        $msgid =~ s/$ackhost//i;
+        $msgid =~ s/_$ackhost//i;
         push(@ret, $msgid);
     }
 
     return @ret;
 }
+
 sub handle_ping {
     my ($cs, $message) = @_;
 
@@ -155,7 +157,8 @@ sub handle_ping {
     $seennode{$hostname}{'lastseen'} = time();
 
     foreach my $ack (find_ack($hostname)) {
-        respond($cs, 'ACKED '.$ack);
+        print $cs 'ACKED '.$ack."\n";
+        unlink($spooldir.'/ack/'.$ack.'_'.$hostname);
     }
     respond($cs, 'PONG');
 }
