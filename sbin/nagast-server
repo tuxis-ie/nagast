@@ -15,7 +15,7 @@ use Asterisk::Outgoing;
 $| = 1;
 
 my $asteriskuser = 'asterisk';
-my $calltimeout = 5;
+my $calltimeout = 45;
 my %callqueue;
 my %seennode;
 my $mode;
