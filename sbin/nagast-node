@@ -120,21 +120,13 @@ sub node_process_command {
 
     foreach (@command) {
         my ($var, $val) = split(/\W/, $_, 2);
+        $notifications{$uuid}{$var} = $val;
         print $oconn $var." ".$val."\n";
     }
 
     print $oconn "HOSTNAME ".$hostname."\n";
     print $oconn "ID ".$uuid."\n";
     print $oconn "\n";
-
-    $notifications{$uuid} = {
-            'HOST' => $var{'HOST'},
-            'CALLERID' => $var{'NEWCALL'},
-    };
-
-    if (defined($vars{'SERVICE'})) {
-        $notifications{$uuid}{'SERVICE'} = $var{'SERVICE'};
-    }
 
     while (my $rdata = <$oconn>) {
         if ($rdata =~ m/^ACKED /) {
@@ -170,7 +162,7 @@ sub node_ack_nagios_host {
     my ($uuid) = @_;
 
     my $ackhost = $notifications{$uuid}{'HOST'};
-    my $acknr   = $notifications{$uuid}{'CALLERID'};
+    my $acknr   = $notifications{$uuid}{'NEWCALL'};
     my $now = time();
 
     return "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr";
@@ -180,7 +172,7 @@ sub node_ack_nagios_svc {
     my ($uuid) = @_;
 
     my $ackhost = $notifications{$uuid}{'HOST'};
-    my $acknr   = $notifications{$uuid}{'CALLERID'};
+    my $acknr   = $notifications{$uuid}{'NEWCALL'};
     my $acksvc  = $notifications{$uuid}{'SERVICE'};
     my $now = time();
 
