@@ -1,0 +1,5 @@
+# This file allows you to configure the settings for nagast-server
+
+OUTCID=
+NAGAST_OPTS="--outcid $OUTCID"
+NAGAST_ENABLED=0

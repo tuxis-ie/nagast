@@ -14,6 +14,8 @@ install:
 	install -m 755 sbin/nagast-server ${NS_BUILD_ROOT}/usr/sbin/nagast-server
 	mkdir -p ${NS_BUILD_ROOT}/usr/share/nagast/samples/
 	cp samples/* ${NS_BUILD_ROOT}/usr/share/nagast/samples/
+	mkdir -p ${NS_BUILD_ROOT}/etc/default
+	install -m 640 default/nagast-server ${NS_BUILD_ROOT}/etc/default/nagast-server
 	mkdir -p ${NS_BUILD_ROOT}/etc/init/
 	install -m 640 init/nagast-server.conf ${NS_BUILD_ROOT}/etc/init/nagast-server.conf
 	mkdir -p ${NS_BUILD_ROOT}/usr/share/asterisk/agi-bin/
@@ -25,6 +27,8 @@ install:
 	rm -rf ${NN_BUILD_ROOT}
 	mkdir -p ${NN_BUILD_ROOT}/usr/sbin/
 	install -m 755 sbin/nagast-node ${NN_BUILD_ROOT}/usr/sbin/nagast-node
+	mkdir -p ${NN_BUILD_ROOT}/etc/default
+	install -m 640 default/nagast-node ${NN_BUILD_ROOT}/etc/default/nagast-node
 	mkdir -p ${NN_BUILD_ROOT}/etc/init/
 	install -m 640 init/nagast-node.conf ${NN_BUILD_ROOT}/etc/init/nagast-node.conf
 

@@ -1,0 +1,5 @@
+# This file allows you to configure the settings for nagast-node
+
+NAGAST_SERVER=
+NAGAST_OPTS="--raddress $NAGAST_SERVER"
+NAGAST_ENABLED=0
