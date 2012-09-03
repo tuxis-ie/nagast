@@ -20,6 +20,8 @@ my %seennode;
 my $mode;
 my $lport = 10042;
 my $laddress = '::';
+my $outchannel = 'SIP';
+my $outcid = '';
 my $language = 'en';
 my $spooldir = '/var/spool/nagiosmessages/';
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
@@ -40,6 +42,10 @@ sub usage {
 --lport <listenport>       (optional, defaults to 10041)
 --sslcert <pathtocert>     (optional, defaults to $sslcert)
 --sslkey <pathtokey>       (optional, defaults to $sslkey)
+--outchannel <channel for outgoing calls>
+                           (optional, defaults to SIP)
+--outcid <outgoing callerid)
+                           (required)
 --lang <isocode>           (optional, defaults to en)
 \n";
     exit 3;
@@ -50,7 +56,13 @@ my $optres = GetOptions(
     "lang=s" => \$language,
     "sslcert=s" => \$sslcert,
     "sslkey=s" => \$sslkey,
+    "outchannel=s" => \$outchannel,
+    "outcid=s" => \$outcid,
     );
+
+if (!defined($outcid) || $outcid eq "") {
+    usage();
+}
 
 my ($alogin,$apass,$auid,$agid) = getpwnam($asteriskuser) or die "Cannot find user $asteriskuser";
 
@@ -73,12 +85,13 @@ if(!($ssock = IO::Socket::SSL->new(
 $SIG{ALRM} = sub {
     foreach my $number (keys(%callqueue)) {
         my $out = new Asterisk::Outgoing;
-        $out->setvariable('Channel', 'SIP/'.$number);
+        $out->setvariable('Channel', $outchannel.'/'.$number);
+        $out->setvariable('CallerID', '"Nagast <'.$outcid.'>"');
         $out->setvariable('MaxRetries', 3);
         $out->setvariable('RetryTime', 60);
         $out->setvariable('WaitTime', 45);
         $out->setvariable('Application', 'AGI');
-        $out->setvariable('Data', 'nagios.agi');
+        $out->setvariable('Data', 'nagios.agi,'.$outchannel.','.$number);
         $out->create_outgoing;
 
         chown($auid,$agid,glob('/var/spool/asterisk/outgoing/*'));

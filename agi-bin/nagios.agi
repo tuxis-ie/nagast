@@ -17,11 +17,8 @@ my $thank_you_sample = '/usr/share/nagast/samples/thank_you';
 my ($alogin,$apass,$auid,$agid) = getpwnam($asteriskuser) or die "Cannot find user $asteriskuser";
 my $AGI = new Asterisk::AGI;
 
-my %input = $AGI->ReadParse();
-
-my $callerid = $input{'channel'};
-
-$callerid =~ s/.*\/(\d+).*/$1/;
+my $outchannel = $ARGV[0];
+my $callerid = $ARGV[1];
 
 my $spooldir = '/var/spool/nagiosmessages/';
 
@@ -95,12 +92,12 @@ if ($#queuedmsg >= 0 && get_active_call() == 0) {
     sleep 1;
 
     my $out = new Asterisk::Outgoing;
-    $out->setvariable('Channel', 'SIP/700');
+    $out->setvariable('Channel', $outchannel.'/'.$callerid);
     $out->setvariable('MaxRetries', 3);
     $out->setvariable('RetryTime', 60);
     $out->setvariable('WaitTime', 45);
     $out->setvariable('Application', 'AGI');
-    $out->setvariable('Data', 'nagios.agi');
+    $out->setvariable('Data', 'nagios.agi,'.$outchannel.','.$callerid);
     $out->create_outgoing;
 
     chown($auid,$agid,glob('/var/spool/asterisk/outgoing/*'));
