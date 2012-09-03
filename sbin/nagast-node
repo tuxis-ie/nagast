@@ -149,12 +149,14 @@ sub handle_ack {
     if (defined($notifications{$uuid})) {
         my $tonagios = "";
         if (defined($notifications{$uuid}{'SERVICE'})) {
-            $tonagios = node_ack_nagios_svc($notifications{$uuid});
+            $tonagios = node_ack_nagios_svc($uuid);
         } else {
-            $tonagios = node_ack_nagios_host($notifications{$uuid});
+            $tonagios = node_ack_nagios_host($uuid);
         }
 
-        print "Sending this string to Nagios: $tonagios\n";
+        open NSOCK, ">/var/lib/nagios3/rw/nagios.cmd";
+        print NSOCK "Sending this string to Nagios: $tonagios\n";
+        close(NSOCK);
     }
 }
 
