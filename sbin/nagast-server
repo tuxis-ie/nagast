@@ -93,8 +93,8 @@ if(!($ssock = IO::Socket::SSL->new(
 $SIG{ALRM} = sub {
     foreach my $uuid (keys(%callqueue)) {
         my $number = $callqueue{$uuid};
-        my $tmpfile = $spooldir.'/'.$uuid.'call';
-        my $dstfile = $outdir.'/'.$uuid.'call';
+        my $tmpfile = $spooldir.'/'.$uuid.'.call';
+        my $dstfile = $outdir.'/'.$uuid.'.call';
         open TMPFILE, "+>$tmpfile";
         print TMPFILE 'Channel:', $outchannel.'/'.$number."\n";
         print TMPFILE 'CallerID: "Nagast <'.$outcid.'>"'."\n";
@@ -107,7 +107,7 @@ $SIG{ALRM} = sub {
 
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
-        delete($callqueue{$number});
+        delete($callqueue{$uuid});
     }
 
     my $now = time();
