@@ -4,13 +4,12 @@ use strict;
 use warnings;
 use IO::Socket::SSL;
 use Data::Dumper;
+use Digest::MD5 qw(md5_base64);
 use Getopt::Long;
-use File::Temp qw(tempfile);
 use CGI::Util qw(escape);
 use LWP::UserAgent;
 use LWP::ConnCache;
 use File::Copy;
-use Asterisk::Outgoing;
 
 $| = 1;
 
@@ -228,12 +227,11 @@ sub master_process_command {
         $line =~ s/^\s+|\s+$//g;
         next if (length($line) == 0);
         $line = escape($line);
-        my ($mp3_fh, $mp3_name) = tempfile(
-            "tts_XXXXXX",
-            DIR    => $tmpdir,
-            SUFFIX => ".mp3",
-            UNLINK => 1
-        );
+        my $mp3_name = "/tmp/".md5_base64($line).'.mp3';
+        if (-f $mp3_name) {
+            push(@mp3list, $mp3_name);
+            next;
+        }
         my $request = HTTP::Request->new('GET' => "$url?tl=$language&q=$line");
         my $response = $ua->request($request, $mp3_name);
         if (!$response->is_success) {
@@ -245,17 +243,11 @@ sub master_process_command {
 
     respond($cs, 'ACK');
 
-    my ($wav_fh, $wav_name) = tempfile(
-        "tts_XXXXXX",
-        DIR    => $tmpdir,
-        SUFFIX => ".wav",
-        UNLINK => 1
-    );
+    my $randnr = $vars{'ID'}.'_'.$vars{'HOSTNAME'};
+    my $wav_name = "/tmp/".$randnr.".wav";
     system($mpg123, "-q", "-w", $wav_name, @mp3list);
 
     @soxargs = ($sox, "-q", $wav_name);
-
-    my $randnr = $vars{'ID'}.'_'.$vars{'HOSTNAME'};
 
     my $tmpfile = $spooldir.'/tmp/'.$randnr.'.gsm';
     my $dstfile = $spooldir.'/new/'.$vars{'NEWCALL'}.'-'.$randnr.'.gsm';
@@ -264,6 +256,7 @@ sub master_process_command {
     push(@soxargs, ("rate", "8000"));
 
     if (system(@soxargs) == 0) {
+        unlink($wav_name);
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
 
