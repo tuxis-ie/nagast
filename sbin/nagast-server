@@ -18,6 +18,7 @@ my $calltimeout = 5;
 my %callqueue;
 my %seennode;
 my $mode;
+my $help;
 my $lport = 10042;
 my $laddress = '::';
 my $outchannel = 'SIP';
@@ -38,6 +39,7 @@ chomp($mpg123, $sox);
 
 sub usage {
     warn "`nagast-server` takes the following options:
+--help                     (optional, this help and exit)
 --laddress <listenhost>    (optional, defaults to ::)
 --lport <listenport>       (optional, defaults to 10041)
 --sslcert <pathtocert>     (optional, defaults to $sslcert)
@@ -51,6 +53,7 @@ sub usage {
     exit 3;
 }
 my $optres = GetOptions(
+    "help" => \$help,
     "lport=i" => \$lport,
     "laddress=s" => \$laddress,
     "lang=s" => \$language,
@@ -59,6 +62,10 @@ my $optres = GetOptions(
     "outchannel=s" => \$outchannel,
     "outcid=s" => \$outcid,
     );
+
+if (defined($help)) {
+    usage();
+}
 
 if (!defined($outcid) || $outcid eq "") {
     usage();

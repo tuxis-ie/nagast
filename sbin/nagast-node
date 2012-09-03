@@ -12,6 +12,7 @@ my $lport = 10041;
 my $laddress = '::';
 my $rport = 10042;
 my $raddress;
+my $help;
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
 my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
 
@@ -21,6 +22,7 @@ chomp($hostname);
 
 sub usage {
     warn "`nagast-node` takes the following options:
+--help                     (optional, this help and exit)
 --laddress <listenhost>    (optional, defaults to ::)
 --lport <listenport>       (optional, defaults to 10041)
 --raddress <remotehost>    (required)
@@ -32,6 +34,7 @@ sub usage {
 }
 
 my $optres = GetOptions(
+    "help" => \$help,
     "lport=i" => \$lport,
     "laddress=s" => \$laddress,
     "rport=i" => \$rport,
@@ -39,6 +42,10 @@ my $optres = GetOptions(
     "sslcert=s" => \$sslcert,
     "sslkey=s" => \$sslkey,
     );
+
+if (defined($help)) {
+    usage();
+}
 
 if (!defined($raddress) || $raddress eq "") {
     usage();
