@@ -132,17 +132,17 @@ sub node_process_command {
     $oconn->close();
 }
 
-sub node_ack_nagios_host {
-    my $now = time();
-
-    print NAGSOCK "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr"
-}
-
-sub node_ack_nagios_svc {
-    my $now = time();
-
-    print NAGSOCK "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;1;1;NagAst;Acked by $acknr"
-}
+#sub node_ack_nagios_host {
+#    my $now = time();
+#
+#    print NAGSOCK "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr"
+#}
+#
+#sub node_ack_nagios_svc {
+#    my $now = time();
+#
+#    print NAGSOCK "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;1;1;NagAst;Acked by $acknr"
+#}
 
 sub run_node {
 	while (1) {
