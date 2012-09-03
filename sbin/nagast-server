@@ -95,7 +95,7 @@ $SIG{ALRM} = sub {
     foreach my $uuid (keys(%callqueue)) {
         my $number = $callqueue{$uuid};
         my $tmpfile = $spooldir.'/'.$uuid.'.call';
-        my $dstfile = $outdir.'/'.$uuid.'.call';
+        my $dstfile = $outdir.'/'.$number.'.call';
         open TMPFILE, "+>$tmpfile";
         print TMPFILE 'Channel:', $outchannel.'/'.$number."\n";
         print TMPFILE 'CallerID: "Nagast <'.$outcid.'>"'."\n";
@@ -243,6 +243,8 @@ sub master_process_command {
         }
     }
 
+    respond($cs, 'ACK');
+
     my ($wav_fh, $wav_name) = tempfile(
         "tts_XXXXXX",
         DIR    => $tmpdir,
@@ -266,11 +268,8 @@ sub master_process_command {
         chown($auid,$agid,$dstfile);
 
         $callqueue{$vars{'ID'}} = $vars{'NEWCALL'};
-
-        respond($cs, 'ACK');
-    } else {
-        respond($cs, 'FATAL');
     }
+
 }
 
 sub run_master {
