@@ -136,8 +136,10 @@ sub node_process_command {
             handle_ack($uuid);
         } elsif ($rdata =~ m/^200/) {
             respond($cs, 'ACK');
+            last;
         } else {
             respond($cs, $rdata);
+            last;
         }
     }
     $oconn->close();

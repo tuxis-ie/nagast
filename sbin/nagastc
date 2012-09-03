@@ -52,3 +52,5 @@ print $sock "HOST $host\n";
 print $sock "SERVICE $service\n" if (defined($service) && $service ne '');
 print $sock "STATE $state\n";
 print $sock "\n";
+
+$sock->close();
