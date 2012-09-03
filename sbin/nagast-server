@@ -102,7 +102,7 @@ $SIG{ALRM} = sub {
         print TMPFILE 'RetryTime: 60'."\n";
         print TMPFILE 'WaitTime: 45'."\n";
         print TMPFILE 'Application: AGI'."\n";
-        print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number.','.$uuid."\n";
+        print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number."\n";
         close(TMPFILE);
 
         move($tmpfile, $dstfile) or die "Move failed $!";
@@ -125,6 +125,19 @@ $SIG{ALRM} = sub {
 
 alarm $calltimeout;
 
+sub find_ack {
+    my ($ackhost) = @_;
+    opendir(my $dh, $spooldir.'/ack/');
+
+    my @ret;
+
+    foreach my $msgid (grep { /.*_$ackhost$/ } readdir($dh)) {
+        $msgid =~ s/$ackhost//i;
+        push(@ret, $msgid);
+    }
+
+    return @ret;
+}
 sub handle_ping {
     my ($cs, $message) = @_;
 
@@ -141,6 +154,9 @@ sub handle_ping {
     $seennode{$hostname}{'interval'} = $interval;
     $seennode{$hostname}{'lastseen'} = time();
 
+    foreach my $ack (find_ack($hostname)) {
+        respond($cs, 'ACKED '.$ack);
+    }
     respond($cs, 'PONG');
 }
 
@@ -234,7 +250,7 @@ sub master_process_command {
 
     @soxargs = ($sox, "-q", $wav_name);
 
-    my $randnr = $vars{'ID'};
+    my $randnr = $vars{'ID'}.'_'.$vars{'HOSTNAME'};
 
     my $tmpfile = $spooldir.'/tmp/'.$randnr.'.gsm';
     my $dstfile = $spooldir.'/new/'.$vars{'NEWCALL'}.'-'.$randnr.'.gsm';
@@ -260,7 +276,7 @@ sub run_master {
 	        my @command;
 	        while (my $input = <$iconn>) {
 	            chomp($input);
-	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE|ID) /) {
+	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE|ID|HOSTNAME) /) {
 	                push(@command, $input);
                 } elsif ($input =~ m/^PING/) {
 	                handle_ping($iconn, $input);

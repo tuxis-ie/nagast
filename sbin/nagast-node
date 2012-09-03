@@ -120,14 +120,18 @@ sub node_process_command {
         print $oconn $var." ".$val."\n";
     }
 
+    print $oconn "HOSTNAME ".$hostname."\n";
     print $oconn "ID ".$uuidgen->to_string($uuidstring)."\n";
     print $oconn "\n";
 
-    my $rdata = <$oconn>;
-    if ($rdata =~ m/^200/) {
-        respond($cs, 'ACK');
-    } else {
-        respond($cs, $rdata);
+    while (my $rdata = <$oconn>) {
+        if ($rdata =~ m/^ACKED /) {
+            print "$rdata";
+        } elsif ($rdata =~ m/^200/) {
+            respond($cs, 'ACK');
+        } else {
+            respond($cs, $rdata);
+        }
     }
     $oconn->close();
 }
