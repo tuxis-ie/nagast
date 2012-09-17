@@ -169,7 +169,7 @@ sub node_ack_nagios_host {
     my $acknr   = $notifications{$uuid}{'NEWCALL'};
     my $now = time();
 
-    return "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr";
+    return "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;0;1;NagAst;Acked by $acknr";
 }
 
 sub node_ack_nagios_svc {
@@ -180,7 +180,7 @@ sub node_ack_nagios_svc {
     my $acksvc  = $notifications{$uuid}{'SERVICE'};
     my $now = time();
 
-    return "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;1;1;NagAst;Acked by $acknr"
+    return "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;0;1;NagAst;Acked by $acknr"
 }
 
 sub run_node {
