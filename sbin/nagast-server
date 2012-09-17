@@ -102,7 +102,7 @@ $SIG{ALRM} = sub {
         print TMPFILE 'RetryTime: 60'."\n";
         print TMPFILE 'WaitTime: 45'."\n";
         print TMPFILE 'Application: AGI'."\n";
-        print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number."\n";
+        print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number.','.$outcid."\n";
         close(TMPFILE);
 
         move($tmpfile, $dstfile) or die "Move failed $!";

@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use Asterisk::AGI;
 use File::Copy;
-use Asterisk::Outgoing;
 use Data::Dumper;
 
 my $asteriskuser = 'asterisk';
@@ -19,6 +18,7 @@ my $AGI = new Asterisk::AGI;
 
 my $outchannel = $ARGV[0];
 my $callerid = $ARGV[1];
+my $outcid = $ARGV[2];
 
 my $spooldir = '/var/spool/nagiosmessages/';
 my $outdir = '/var/spool/asterisk/outgoing/';
@@ -95,16 +95,20 @@ if ($#queuedmsg >= 0 && get_active_call() == 0) {
 
     sleep 1;
 
-    my $out = new Asterisk::Outgoing;
-    $out->setvariable('Channel', $outchannel.'/'.$callerid);
-    $out->setvariable('MaxRetries', 3);
-    $out->setvariable('RetryTime', 60);
-    $out->setvariable('WaitTime', 45);
-    $out->setvariable('Application', 'AGI');
-    $out->setvariable('Data', 'nagios.agi,'.$outchannel.','.$callerid);
-    $out->create_outgoing;
+    my $tmpfile = $spooldir.'/'.$callerid.'.call';
+    my $dstfile = $outdir.'/'.$callerid.'.call';
+    open TMPFILE, "+>$tmpfile";
+    print TMPFILE 'Channel:', $outchannel.'/'.$callerid."\n";
+    print TMPFILE 'CallerID: "Nagast <'.$outcid.'>"'."\n";
+    print TMPFILE 'MaxRetries: 3'."\n";
+    print TMPFILE 'RetryTime: 60'."\n";
+    print TMPFILE 'WaitTime: 45'."\n";
+    print TMPFILE 'Application: AGI'."\n";
+    print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$callerid.','.$outcid."\n";
+    close(TMPFILE);
 
-    chown($auid,$agid,glob('/var/spool/asterisk/outgoing/*'));
+    move($tmpfile, $dstfile) or die "Move failed $!";
+    chown($auid,$agid,$dstfile);
 
     exit;
 }
