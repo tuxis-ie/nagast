@@ -17,7 +17,7 @@ my $help;
 my %notifications;
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
 my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
-my $onlycallfor = "(CRITICAL|WARNING|UNKNOWN)";
+my $onlycallfor = "(CRITICAL|WARNING|UNKNOWN|DOWN)";
 my $uuidgen = new Data::UUID;
 
 my $hostname = `/bin/hostname`;
