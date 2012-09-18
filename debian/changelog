@@ -1,5 +1,6 @@
-nagast (0.0.1-1) stable; urgency=low
+nagast (1.0-1) stable; urgency=low
 
-  * See https://github.com/tuxis-ie/nagast for the changelog
+  * 1.0 Release!
+    See https://github.com/tuxis-ie/nagast for the changelog
 
- -- Mark Schouten <mark@tuxis.nl>  Fri, 31 Aug 2012 11:30:00 +0200
+ -- Mark Schouten <mark@tuxis.nl>  Tue, 18 Sep 2012 12:00:00 +0200
