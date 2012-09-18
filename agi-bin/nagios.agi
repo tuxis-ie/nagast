@@ -87,13 +87,9 @@ sub get_active_call {
     return 0;
 }
 
-my @queuedmsg = find_files();
+sub requeue {
 
-if ($#queuedmsg >= 0 && get_active_call() == 0) {
-    $AGI->verbose("Nobody bothered to pickup or press the pound key. Hangup and try again.", 1);
     $AGI->hangup();
-
-    sleep 1;
 
     my $tmpfile = $spooldir.'/'.$callerid.'.call';
     my $dstfile = $outdir.'/'.$callerid.'.call';
@@ -113,6 +109,16 @@ if ($#queuedmsg >= 0 && get_active_call() == 0) {
     exit;
 }
 
+my @queuedmsg = find_files();
+
+if ($#queuedmsg >= 0 && get_active_call() == 0) {
+    $AGI->verbose("Nobody bothered to pickup or press the pound key. Hangup and try again.", 1);
+
+    sleep 1;
+
+    requeue();
+}
+
 
 if ($#queuedmsg >= $shit_hits_fan_at) {
     $AGI->stream_file($shit_hits_fan_sample, '#');
@@ -129,8 +135,7 @@ if ($#queuedmsg >= $shit_hits_fan_at) {
             ack_msg($message);
             @queuedmsg = find_files();
         } else {
-            $AGI->hangup();
-            exit;
+            requeue();
         }
     }
 } else {
