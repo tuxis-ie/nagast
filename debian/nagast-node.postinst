@@ -18,9 +18,9 @@ set -e
 
 case "$1" in
     configure)
-        if dpkg-vendor --is Ubuntu; then
+        if [ `lsb_release -i -s` = "Ubuntu" ]; then
             status nagast-node | grep -q running && restart nagast-node
-        elif dpkg-vendor --is Debian; then
+        elif [ `lsb_release -i -s` = "Debian" ]; then
             /etc/init.d/nagast-node status | grep -q 'not running' || /etc/init.d/nagast-node restart
         fi
     ;;

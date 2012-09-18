@@ -22,9 +22,9 @@ case "$1" in
         chown asterisk:asterisk /var/spool/nagiosmessages/ack
         chown asterisk:asterisk /var/spool/nagiosmessages/tmp
 
-        if dpkg-vendor --is Ubuntu; then
+        if [ `lsb_release -i -s` = "Ubuntu" ]; then
             status nagast-server | grep -q running && restart nagast-server
-        elif dpkg-vendor --is Debian; then
+        elif [ `lsb_release -i -s` = "Debian" ]; then
             /etc/init.d/nagast-server status | grep -q 'not running' || /etc/init.d/nagast-server restart
         fi
     ;;

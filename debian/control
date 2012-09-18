@@ -14,12 +14,12 @@ Description: Send commands to the nagast-node
 Package: nagast-server
 Architecture: all
 Pre-Depends: asterisk
-Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules, libwww-perl, sox, mpg123, asterisk
+Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules, libwww-perl, sox, mpg123, lsb-release
 Description: Place calls through Asterisk, initiated by the nagast-node or nagast-client
  Places calls in the Asterisk-queue, placed by the nagast-client. Install this on your Asterisk server.
 
 Package: nagast-node
 Architecture: all
-Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules, libossp-uuid-perl, nagios3
+Depends: libio-socket-inet6-perl, libio-socket-ssl-perl, libgetargs-long-perl, perl-modules, libossp-uuid-perl, nagios3, lsb-release
 Description: Communicatie with the nagasg-server
  Places calls in the nagast-server-queue, initiated by the nagast-client. Install this on your Nagios server.
