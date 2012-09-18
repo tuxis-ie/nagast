@@ -31,6 +31,8 @@ install:
 	install -m 755 sbin/nagast-node ${NN_BUILD_ROOT}/usr/sbin/nagast-node
 	mkdir -p ${NN_BUILD_ROOT}/etc/default
 	install -m 640 default/nagast-node ${NN_BUILD_ROOT}/etc/default/nagast-node
+	mkdir -p ${NN_BUILD_ROOT}/etc/nagios3/conf.d/
+	install -m 640 nagios/nagast.cfg ${NN_BUILD_ROOT}/etc/nagios3/conf.d/nagast.cfg
 	mkdir -p ${NN_BUILD_ROOT}/etc/init/
 	mkdir -p ${NS_BUILD_ROOT}/etc/init.d/
 	install -m 640 init/nagast-node.conf ${NN_BUILD_ROOT}/etc/init/nagast-node.conf

@@ -23,6 +23,7 @@ my $lport = 10042;
 my $laddress = '::';
 my $outchannel = 'SIP';
 my $outcid = '';
+my $adminphone = '';
 my $language = 'en';
 my $spooldir = '/var/spool/nagiosmessages/';
 my $outdir = '/var/spool/asterisk/outgoing/';
@@ -49,6 +50,8 @@ sub usage {
                            (optional, defaults to SIP)
 --outcid <outgoing callerid)
                            (required)
+--adminphone <admin phonenumer>
+                           (required, will be called if nodes get lost)
 --lang <isocode>           (optional, defaults to en)
 \n";
     exit 3;
@@ -62,13 +65,14 @@ my $optres = GetOptions(
     "sslkey=s" => \$sslkey,
     "outchannel=s" => \$outchannel,
     "outcid=s" => \$outcid,
+    "adminphone=s" => \$adminphone,
     );
 
 if (defined($help)) {
     usage();
 }
 
-if (!defined($outcid) || $outcid eq "") {
+if (!defined($outcid) || $outcid eq "" || !defined($adminphone) || $adminphone eq "") {
     usage();
 }
 
@@ -115,7 +119,7 @@ $SIG{ALRM} = sub {
     foreach my $node (keys %seennode) {
         my $interval = $seennode{$node}{'interval'}*2;
         if ($now-$seennode{$node}{'lastseen'} > $interval) {
-            master_process_command(undef, ('SERVICE Nagast', 'HOST Enoclue', 'STATE Critical', 'NEWCALL 700'));
+            master_process_command(undef, ('SERVICE Nagast', 'HOST Enoclue', 'STATE Critical', 'NEWCALL '.$adminphone));
             delete($seennode{$node});
         }
     }

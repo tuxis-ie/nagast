@@ -1,5 +1,6 @@
 # This file allows you to configure the settings for nagast-server
 
 OUTCID=
-NAGAST_OPTS="--outcid $OUTCID"
+ADMINPHONE=
+NAGAST_OPTS="--outcid $OUTCID --adminphone $ADMINPHONE"
 NAGAST_ENABLED=0
