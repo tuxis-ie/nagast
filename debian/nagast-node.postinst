@@ -18,14 +18,10 @@ set -e
 
 case "$1" in
     configure)
-        chown asterisk:asterisk /var/spool/nagiosmessages/new
-        chown asterisk:asterisk /var/spool/nagiosmessages/ack
-        chown asterisk:asterisk /var/spool/nagiosmessages/tmp
-
         if dpkg-vendor --is Ubuntu; then
-            status nagast-server | grep -q running && restart nagast-server
+            status nagast-node | grep -q running && restart nagast-node
         elif dpkg-vendor --is Debian; then
-            /etc/init.d/nagast-server status | grep -q 'not running' || /etc/init.d/nagast-server restart
+            /etc/init.d/nagast-node status | grep -q 'not running' || /etc/init.d/nagast-node restart
         fi
     ;;
 

@@ -17,7 +17,9 @@ install:
 	mkdir -p ${NS_BUILD_ROOT}/etc/default
 	install -m 640 default/nagast-server ${NS_BUILD_ROOT}/etc/default/nagast-server
 	mkdir -p ${NS_BUILD_ROOT}/etc/init/
+	mkdir -p ${NS_BUILD_ROOT}/etc/init.d/
 	install -m 640 init/nagast-server.conf ${NS_BUILD_ROOT}/etc/init/nagast-server.conf
+	install -m 755 init/nagast-server.sysvinit ${NS_BUILD_ROOT}/etc/init.d/nagast-server
 	mkdir -p ${NS_BUILD_ROOT}/usr/share/asterisk/agi-bin/
 	install -m 750 agi-bin/nagios.agi ${NS_BUILD_ROOT}/usr/share/asterisk/agi-bin/nagios.agi
 	mkdir -p ${NS_BUILD_ROOT}/var/spool/nagiosmessages/ack
@@ -30,7 +32,9 @@ install:
 	mkdir -p ${NN_BUILD_ROOT}/etc/default
 	install -m 640 default/nagast-node ${NN_BUILD_ROOT}/etc/default/nagast-node
 	mkdir -p ${NN_BUILD_ROOT}/etc/init/
+	mkdir -p ${NS_BUILD_ROOT}/etc/init.d/
 	install -m 640 init/nagast-node.conf ${NN_BUILD_ROOT}/etc/init/nagast-node.conf
+	install -m 755 init/nagast-node.sysvinit ${NS_BUILD_ROOT}/etc/init.d/nagast-node
 
 build:
 binary-indep:
