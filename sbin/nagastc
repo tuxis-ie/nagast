@@ -7,7 +7,7 @@ use Getopt::Long;
 
 my $raddress = '';
 my $rport = 10041;
-my ($host, $service, $state, $recipient);
+my ($host, $service, $state, $recipient, $type);
 
 sub usage {
     print "`nagastc` takes the following options:
@@ -17,6 +17,7 @@ sub usage {
 --service <nagiosservice>  (optional)
 --state <nagiosstate>      (required)
 --to <whotocall>           (required)
+--type \$NOTIFICATIONTYPE\$ (required)
 \n";
     exit;
 }
@@ -28,14 +29,18 @@ my $optres = GetOptions(
     "service=s" => \$service,
     "state=s" => \$state,
     "to=s" => \$recipient,
+    "type=s" => \$type,
     );
 
 if (!defined($recipient) || $recipient eq '' ||
     !defined($raddress) || $raddress eq '' ||
     !defined($state) || $state eq '' ||
+    !defined($type) || $type eq '' ||
     !defined($host) || $host eq '') {
     usage();
 }
+
+exit unless $type eq "PROBLEM";
 
 my ($v_mode, $sock, $buf);
 
