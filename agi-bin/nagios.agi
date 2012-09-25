@@ -89,7 +89,6 @@ sub get_active_call {
 
 sub requeue {
 
-    $AGI->hangup();
 
     my $tmpfile = $spooldir.'/'.$callerid.'.call';
     my $dstfile = $outdir.'/'.$callerid.'.call';
@@ -106,6 +105,8 @@ sub requeue {
     move($tmpfile, $dstfile) or die "Move failed $!";
     chown($auid,$agid,$dstfile);
 
+    $AGI->verbose("Requeued to $dstfile", 1);
+    $AGI->hangup();
     exit;
 }
 
