@@ -97,6 +97,10 @@ if(!($ssock = IO::Socket::SSL->new(
 $SIG{ALRM} = sub {
     foreach my $uuid (keys(%callqueue)) {
         my $number = $callqueue{$uuid};
+        my $sample = $spooldir.'/new/'.$number.'-'.$uuid.'.gsm';
+
+        next unless (-e $sample);
+
         my $tmpfile = $spooldir.'/'.$uuid.'.call';
         my $dstfile = $outdir.'/'.$number.'.call';
         open TMPFILE, "+>$tmpfile";
@@ -108,6 +112,11 @@ $SIG{ALRM} = sub {
         print TMPFILE 'Application: AGI'."\n";
         print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number.','.$outcid."\n";
         close(TMPFILE);
+
+        if (-e $dstfile) {
+            unlink($tmpfile);
+            next;
+        }
 
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
@@ -247,7 +256,7 @@ sub master_process_command {
 
     respond($cs, 'ACK');
 
-    my $randnr = $vars{'ID'}.'_'.$vars{'HOSTNAME'};
+    my $randnr = $vars{'ID'};
     my $wav_name = "/tmp/".$randnr.".wav";
     system($mpg123, "-q", "-w", $wav_name, @mp3list);
 
