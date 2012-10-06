@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use IO::Socket::SSL;
 use Data::Dumper;
-use Digest::MD5 qw(md5_base64);
+use Digest::MD5 qw(md5_hex);
 use Getopt::Long;
 use CGI::Util qw(escape);
 use LWP::UserAgent;
@@ -99,7 +99,10 @@ $SIG{ALRM} = sub {
         my $number = $callqueue{$uuid};
         my $sample = $spooldir.'/new/'.$number.'-'.$uuid.'.gsm';
 
-        next unless (-e $sample);
+        unless (-e $sample) {
+            delete($callqueue{$uuid});
+            next;
+        }
 
         my $tmpfile = $spooldir.'/'.$uuid.'.call';
         my $dstfile = $outdir.'/'.$number.'.call';
@@ -240,7 +243,7 @@ sub master_process_command {
         $line =~ s/^\s+|\s+$//g;
         next if (length($line) == 0);
         $line = escape($line);
-        my $mp3_name = "/tmp/".md5_base64($line).'.mp3';
+        my $mp3_name = "/tmp/".md5_hex($line).'.mp3';
         if (-f $mp3_name) {
             push(@mp3list, $mp3_name);
             next;
@@ -256,7 +259,7 @@ sub master_process_command {
 
     respond($cs, 'ACK');
 
-    my $randnr = $vars{'ID'};
+    my $randnr = $vars{'ID'}.'_'.$vars{'HOSTNAME'};
     my $wav_name = "/tmp/".$randnr.".wav";
     system($mpg123, "-q", "-w", $wav_name, @mp3list);
 
@@ -273,7 +276,7 @@ sub master_process_command {
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
 
-        $callqueue{$vars{'ID'}} = $vars{'NEWCALL'};
+        $callqueue{$randnr} = $vars{'NEWCALL'};
     }
 
 }
