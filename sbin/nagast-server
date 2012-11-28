@@ -24,7 +24,7 @@ my $laddress = '::';
 my $outchannel = 'SIP';
 my $outcid = '';
 my $adminphone = '';
-my $language = 'en';
+my $language = 'en_US';
 my $spooldir = '/var/spool/nagiosmessages/';
 my $outdir = '/var/spool/asterisk/outgoing/';
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
@@ -206,9 +206,9 @@ sub master_process_command {
     }
 
     if (defined($vars{'SERVICE'})) {
-        $outline = 'Service '.$vars{'SERVICE'}.' on host '.$vars{'HOST'}. ' has state: '.$vars{'STATE'}.'.';
+        $outline = 'Service: '.$vars{'SERVICE'}.', on host, '.$vars{'HOST'}. ' has state: '.$vars{'STATE'}.'.';
     } else {
-        $outline = 'Host '.$vars{'HOST'}. ' is '.$vars{'STATE'}.'.';
+        $outline = 'Host: '.$vars{'HOST'}. ' is: '.$vars{'STATE'}.'.';
     }
 
     for ($outline) {
