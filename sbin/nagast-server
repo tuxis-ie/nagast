@@ -177,7 +177,7 @@ sub handle_ping {
     my $interval = $1;
     my $hostname = $2;
 
-    debug("Handling ping from $hostname")
+    debug("Handling ping from $hostname");
     if ((!defined($interval) || $interval eq "") ||
         (!defined($hostname) || $hostname eq "")) {
         notice("Insufficient parameters for $hostname");
