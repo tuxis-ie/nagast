@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use IO::Socket::SSL;
-use Data::Dumper;
+use Logger::Syslog;
 use Digest::MD5 qw(md5_hex);
 use Getopt::Long;
 use CGI::Util qw(escape);
@@ -15,10 +15,7 @@ $| = 1;
 
 my $asteriskuser = 'asterisk';
 my $calltimeout = 45;
-my %callqueue;
-my %seennode;
-my $mode;
-my $help;
+my (%callqueue, %seennode, $mode, $help, $debug);
 my $lport = 10042;
 my $laddress = '::';
 my $outchannel = 'SIP';
@@ -53,6 +50,7 @@ sub usage {
 --adminphone <admin phonenumer>
                            (required, will be called if nodes get lost)
 --lang <isocode>           (optional, defaults to en)
+--debug                    (optional)
 \n";
     exit 3;
 }
@@ -66,6 +64,7 @@ my $optres = GetOptions(
     "outchannel=s" => \$outchannel,
     "outcid=s" => \$outcid,
     "adminphone=s" => \$adminphone,
+    "debug" => \$debug
     );
 
 if (defined($help)) {
@@ -76,9 +75,14 @@ if (!defined($outcid) || $outcid eq "" || !defined($adminphone) || $adminphone e
     usage();
 }
 
+logger_init('daemon');
+logger_prefix('nagast-server');
+
 my ($alogin,$apass,$auid,$agid) = getpwnam($asteriskuser) or die "Cannot find user $asteriskuser";
 
 my ($ssock, $iconn, $oconn);
+
+debug("Opening socket on $laddress:$lport") if ($debug);
 
 if(!($ssock = IO::Socket::SSL->new(
         Listen => 5,
@@ -90,22 +94,25 @@ if(!($ssock = IO::Socket::SSL->new(
         SSL_cert_file => $sslcert,
         SSL_verify_mode => 0x01,
         )) ) {
-    warn "unable to create socket: ", &IO::Socket::SSL::errstr, "\n";
+    error("Unable to create listening socket on ".$laddress.":".$lport.": ", &IO::Socket::SSL::errstr);
     exit(0);
 }
 
 $SIG{ALRM} = sub {
+    debug("Running through queued calls") if ($debug);
     foreach my $uuid (keys(%callqueue)) {
         my $number = $callqueue{$uuid};
         my $sample = $spooldir.'/new/'.$number.'-'.$uuid.'.gsm';
 
         unless (-e $sample) {
+            error("Cannot find sample for $uuid");
             delete($callqueue{$uuid});
             next;
         }
 
         my $tmpfile = $spooldir.'/'.$uuid.'.call';
         my $dstfile = $outdir.'/'.$number.'.call';
+        debug("Creating queuefile") if ($debug);
         open TMPFILE, "+>$tmpfile";
         print TMPFILE 'Channel:', $outchannel.'/'.$number."\n";
         print TMPFILE 'CallerID: "Nagast <'.$outcid.'>"'."\n";
@@ -117,20 +124,23 @@ $SIG{ALRM} = sub {
         close(TMPFILE);
 
         if (-e $dstfile) {
+            debug("Deleting queuefile, an existing call is queued") if ($debug);
             unlink($tmpfile);
             next;
         }
 
-        move($tmpfile, $dstfile) or die "Move failed $!";
+        move($tmpfile, $dstfile) or error("Move failed $!");
         chown($auid,$agid,$dstfile);
         delete($callqueue{$uuid});
     }
 
     my $now = time();
 
+    debug("Checking for timedout hosts") if ($debug);
     foreach my $node (keys %seennode) {
         my $interval = $seennode{$node}{'interval'}*2;
         if ($now-$seennode{$node}{'lastseen'} > $interval) {
+            notice("Missing node $node");
             master_process_command(undef, ('SERVICE Nagast', 'HOST Enoclue', 'STATE Critical', 'NEWCALL '.$adminphone));
             delete($seennode{$node});
         }
@@ -143,15 +153,20 @@ alarm $calltimeout;
 
 sub find_ack {
     my ($ackhost) = @_;
+
+    debug("Looking for acks to send back") if ($debug);
+
     opendir(my $dh, $spooldir.'/ack/');
 
     my @ret;
 
     foreach my $msgid (grep { /.*_$ackhost$/ } readdir($dh)) {
+        notice("Acking $msgid to $ackhost");
         $msgid =~ s/_$ackhost//i;
         push(@ret, $msgid);
     }
 
+    debug("Done looking for acks") if ($debug);
     return @ret;
 }
 
@@ -162,8 +177,10 @@ sub handle_ping {
     my $interval = $1;
     my $hostname = $2;
 
+    debug("Handling ping from $hostname")
     if ((!defined($interval) || $interval eq "") ||
         (!defined($hostname) || $hostname eq "")) {
+        notice("Insufficient parameters for $hostname");
         respond($cs, 'INSUFPARAM');
         return;
     }
@@ -171,6 +188,7 @@ sub handle_ping {
     $seennode{$hostname}{'interval'} = $interval;
     $seennode{$hostname}{'lastseen'} = time();
 
+    debug("Updated lastseen value for $hostname") if ($debug);
     foreach my $ack (find_ack($hostname)) {
         print $cs 'ACKED '.$ack."\n";
         unlink($spooldir.'/ack/'.$ack.'_'.$hostname);
@@ -181,6 +199,7 @@ sub handle_ping {
 sub respond {
     my ($cs, $rcode) = @_;
 
+    debug("Responding with $rcode") if ($debug);
     if (!defined($cs)) {
         return;
     }
@@ -196,6 +215,7 @@ sub respond {
         'EPROXY' => '503 PROXY ERROR. COULD NOT REACH MASTER',
     };
 
+    notice("Sending reply: $responds->{$rcode}");
     if (defined($responds->{$rcode})) {
         print $cs $responds->{$rcode}."\n";
     } else {
@@ -209,6 +229,7 @@ sub master_process_command {
 
     foreach (@command) {
         my ($var, $val) = split(/\W/, $_, 2);
+        debug("$var = $val") if ($debug);
         $vars{$var} = $val;
     }
 
@@ -223,6 +244,7 @@ sub master_process_command {
         $outline = 'Host: '.$vars{'HOST'}. ' is: '.$vars{'STATE'}.'.';
     }
 
+    debug("Processing $outline") if ($debug);
     for ($outline) {
         # Split input to comply with google tts requirements #
         s/[\\|*~<>^\n\(\)\[\]\{\}[:cntrl:]]/ /g;
@@ -232,6 +254,7 @@ sub master_process_command {
         @text = /.{1,100}[.,?!:;]|.{1,100}\s/g;
     }
 
+    debug("Creating LWP-object") if ($debug);
     my $ua = LWP::UserAgent->new;
     $ua->agent("Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20100101");
     $ua->env_proxy;
@@ -248,9 +271,11 @@ sub master_process_command {
             push(@mp3list, $mp3_name);
             next;
         }
+        debug ("Doing http-request: $url?tl=$language&q=$line") if ($debug);
         my $request = HTTP::Request->new('GET' => "$url?tl=$language&q=$line");
         my $response = $ua->request($request, $mp3_name);
         if (!$response->is_success) {
+            error("Failed to do request: $url?tl=$language&q=$line");
             respond('FATAL');
         } else {
             push(@mp3list, $mp3_name);
@@ -259,6 +284,7 @@ sub master_process_command {
 
     respond($cs, 'ACK');
 
+    debug("Converting to wav") if ($debug);
     my $randnr = $vars{'ID'}.'_'.$vars{'HOSTNAME'};
     my $wav_name = "/tmp/".$randnr.".wav";
     system($mpg123, "-q", "-w", $wav_name, @mp3list);
@@ -271,31 +297,38 @@ sub master_process_command {
     push(@soxargs, ("tempo", "-s", $speed)) if ($speed != 1);
     push(@soxargs, ("rate", "8000"));
 
+    debug("Converting to gsm") if ($debug);
     if (system(@soxargs) == 0) {
         unlink($wav_name);
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
 
+        notice("Creating call $randnr for ".$vars{'NEWCALL'});
         $callqueue{$randnr} = $vars{'NEWCALL'};
     }
 
 }
 
 sub run_master {
+    debug("Starting...") if ($debug);
 	while (1) {
 	    while ($iconn = $ssock->accept()) {
 	        my @command;
 	        while (my $input = <$iconn>) {
 	            chomp($input);
+                debug("Received input $input") if ($debug);
 	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE|ID|HOSTNAME) /) {
+                    debug("Pushing $input for processing") if ($debug);
 	                push(@command, $input);
                 } elsif ($input =~ m/^PING/) {
 	                handle_ping($iconn, $input);
 	            } elsif ($input =~ m/^$/) {
 	                if ($#command < 2) {
+                        notice("Insufficient parameters");
 	                    respond($iconn, 'INSUFPARAM');
 	                    @command = ();
 	                } else {
+                        notice("Processing");
 	                    master_process_command($iconn, @command);
 	                    @command = ();
 	                }
