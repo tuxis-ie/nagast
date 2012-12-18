@@ -55,7 +55,7 @@ if (!defined($raddress) || $raddress eq "") {
     usage();
 }
 
-logger_init('local');
+logger_init('daemon');
 logger_prefix('nagast-node');
 
 my ($ssock, $iconn, $oconn);
