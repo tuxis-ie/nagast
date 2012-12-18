@@ -92,8 +92,6 @@ sub get_active_call {
 }
 
 sub requeue {
-
-
     my $tmpfile = $spooldir.'/'.$callerid.'.call';
     my $dstfile = $outdir.'/'.$callerid.'.call';
     open TMPFILE, "+>$tmpfile";

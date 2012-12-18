@@ -2,12 +2,13 @@
 
 use strict;
 use warnings;
+use Logger::Syslog;
 use IO::Socket::SSL;
 use Getopt::Long;
 
 my $raddress = '';
 my $rport = 10041;
-my ($host, $service, $state, $recipient, $type);
+my ($host, $service, $state, $recipient, $type, $debug);
 
 sub usage {
     print "`nagastc` takes the following options:
@@ -30,6 +31,7 @@ my $optres = GetOptions(
     "state=s" => \$state,
     "to=s" => \$recipient,
     "type=s" => \$type,
+    "debug" => \$debug
     );
 
 if (!defined($recipient) || $recipient eq '' ||
@@ -42,20 +44,35 @@ if (!defined($recipient) || $recipient eq '' ||
 
 exit unless $type eq "PROBLEM";
 
+logger_init('local');
+logger_prefix('nagastc');
+
 my ($v_mode, $sock, $buf);
+
+debug('Starting') if ($debug);
 
 if(!($sock = IO::Socket::SSL->new( PeerAddr => $raddress,
         PeerPort => $rport,
         Proto    => 'tcp',
     ))) {
-    warn "Unable to connect to ".$raddress.":".$rport.": ", &IO::Socket::SSL::errstr, "\n";
+    error("Unable to connect to ".$raddress.":".$rport.": ", &IO::Socket::SSL::errstr);
     exit(1);
 }
 
+notice('Connected to '.$raddress.':'.$rport);
+
 print $sock "NEWCALL $recipient\n";
+debug("Sended: NEWCALL $recipient") if ($debug);
 print $sock "HOST $host\n";
+debug("Sended: HOST $host") if ($debug);
 print $sock "SERVICE $service\n" if (defined($service) && $service ne '');
+debug("Sended: SERVICE $service") if ($debug && (defined($service) && $service ne ''));
 print $sock "STATE $state\n";
+debug("Sended: STATE $state") if ($debug);
 print $sock "\n";
 
 $sock->close();
+if (!defined($service) || $service eq '') {
+    $service = "none";
+}
+notice("Sended $recipient/$host/$service/$state")
