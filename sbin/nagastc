@@ -19,6 +19,7 @@ sub usage {
 --state <nagiosstate>      (required)
 --to <whotocall>           (required)
 --type \$NOTIFICATIONTYPE\$ (required)
+--debug                    (optional)
 \n";
     exit;
 }
