@@ -21,7 +21,7 @@ my $mode;
 my $help;
 my $lport = 10042;
 my $laddress = '::';
-my $outchannel = 'SIP';
+my $outchannel = 'local';
 my $outcid = '';
 my $adminphone = '';
 my $language = 'en_US';
@@ -107,7 +107,7 @@ $SIG{ALRM} = sub {
         my $tmpfile = $spooldir.'/'.$uuid.'.call';
         my $dstfile = $outdir.'/'.$number.'.call';
         open TMPFILE, "+>$tmpfile";
-        print TMPFILE 'Channel:', $outchannel.'/'.$number."\n";
+        print TMPFILE 'Channel:', $outchannel.'/'.$number.'@default/n'."\n";
         print TMPFILE 'CallerID: "Nagast <'.$outcid.'>"'."\n";
         print TMPFILE 'MaxRetries: 3'."\n";
         print TMPFILE 'RetryTime: 60'."\n";
@@ -121,8 +121,8 @@ $SIG{ALRM} = sub {
             next;
         }
 
+        chown($auid,$agid,$tmpfile);
         move($tmpfile, $dstfile) or die "Move failed $!";
-        chown($auid,$agid,$dstfile);
         delete($callqueue{$uuid});
     }
 
