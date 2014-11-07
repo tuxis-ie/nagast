@@ -1,3 +1,9 @@
+nagast (1.0-2) stable; urgency=low
+
+  * Lots of small changes over the two years
+
+ -- Mark Schouten <mark@tuxis.nl>  Fri, 07 Oct 2014 12:00:00 +0200
+
 nagast (1.0-1) stable; urgency=low
 
   * 1.0 Release!

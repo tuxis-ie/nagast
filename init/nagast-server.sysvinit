@@ -18,7 +18,7 @@ DEFAULT=/etc/default/$NAME
 
 test -x $DAEMON || exit 5
 
-source $DEFAULT || exit 5
+. $DEFAULT || exit 5
 
 if [ "$NAGAST_ENABLED" != "1" ]; then
     log_daemon_msg "Nagast is disabled. See $DEFAULT"
