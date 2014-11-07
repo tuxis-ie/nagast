@@ -17,7 +17,6 @@ my $help;
 my %notifications;
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
 my $sslkey  = '/etc/ssl/private/ssl-cert-snakeoil.key';
-my $onlycallfor = "(CRITICAL|WARNING|UNKNOWN|DOWN)";
 my $uuidgen = new Data::UUID;
 
 my $hostname = `/bin/hostname`;
@@ -89,7 +88,6 @@ sub respond {
     my $responds = {
         'ACK' => '200 ACK',
         'PONG' => '200 THANKS FOR PINGING',
-        'IGNORE' => '200 THANKS, BUT THIS MESSAGE IS IGNORED (DOES NOT MATCH '.$onlycallfor.')',
         'FATAL' => '500 FATAL ERROR',
         'U_FATAL' => '500 UNKNOWN FATAL ERROR',
         'INSUFPARAM' => '500 INSUFFICIENT PARAMETERS',
@@ -171,7 +169,7 @@ sub node_ack_nagios_host {
     my $acknr   = $notifications{$uuid}{'NEWCALL'};
     my $now = time();
 
-    return "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;0;1;NagAst;Acked by $acknr";
+    return "[$now] ACKNOWLEDGE_HOST_PROBLEM;$ackhost;0;1;1;NagAst;Acked by $acknr";
 }
 
 sub node_ack_nagios_svc {
@@ -182,7 +180,7 @@ sub node_ack_nagios_svc {
     my $acksvc  = $notifications{$uuid}{'SERVICE'};
     my $now = time();
 
-    return "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;0;1;NagAst;Acked by $acknr"
+    return "[$now] ACKNOWLEDGE_SVC_PROBLEM;$ackhost;$acksvc;0;1;1;NagAst;Acked by $acknr"
 }
 
 sub run_node {
@@ -192,10 +190,6 @@ sub run_node {
 	        while (my $input = <$iconn>) {
 	            chomp($input);
 	            if ($input =~ m/^(NEWCALL|HOST|SERVICE|STATE) /) {
-                    if ($input =~ m/^STATE/ && $input !~ m/$onlycallfor/) {
-                        respond($iconn, 'IGNORE');
-                        last;
-                    }
 	                push(@command, $input);
 	            } elsif ($input =~ m/^$/) {
 	                if ($#command < 2) {

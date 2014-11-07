@@ -29,11 +29,15 @@ sub find_files {
     my @ret;
 
     foreach my $msgid (grep { /^$callerid-.*/ } readdir($dh)) {
-        $msgid =~ s/\.(wav|gsm)//i;
+        $msgid =~ s/\.(wav|gsm|al)//i;
         push(@ret, $msgid);
     }
 
-    return @ret;
+    if ($#ret >= 0) {
+        return @ret;
+    } else {
+        return 'FALSE';
+    }
 }
 
 sub get_ack {
@@ -63,6 +67,7 @@ sub ack_msg {
     my $uuid = $msg;
     $uuid =~ s/$callerid-//;
     unlink($outdir.'/'.$msg.'.call');
+    move($spooldir.'/new/'.$msg.'.al', $spooldir.'/ack/'.$uuid) or $AGI->verbose("Failed to ack message $msg: $!", 1);
     move($spooldir.'/new/'.$msg.'.gsm', $spooldir.'/ack/'.$uuid) or $AGI->verbose("Failed to ack message $msg: $!", 1);
 }
 
@@ -89,7 +94,6 @@ sub get_active_call {
 
 sub requeue {
 
-    $AGI->hangup();
 
     my $tmpfile = $spooldir.'/'.$callerid.'.call';
     my $dstfile = $outdir.'/'.$callerid.'.call';
@@ -106,6 +110,8 @@ sub requeue {
     move($tmpfile, $dstfile) or die "Move failed $!";
     chown($auid,$agid,$dstfile);
 
+    $AGI->verbose("Requeued to $dstfile", 1);
+    $AGI->hangup();
     exit;
 }
 
@@ -124,18 +130,23 @@ if ($#queuedmsg >= $shit_hits_fan_at) {
     $AGI->stream_file($shit_hits_fan_sample, '#');
 
     if (get_ack() == 1) {
-        foreach my $message (@queuedmsg) {
-            ack_msg($message);
+        while (find_files() ne "FALSE") {
+            @queuedmsg = find_files();
+            foreach my $message (@queuedmsg) {
+                ack_msg($message);
+            }
         }
     }
 } elsif ($#queuedmsg >= 0) {
-    foreach my $message (@queuedmsg) {
-        $AGI->stream_file($spooldir.'/new/'.$message, '#');
-        if (get_ack() == 1) {
-            ack_msg($message);
-            @queuedmsg = find_files();
-        } else {
-            requeue();
+    while (find_files() ne "FALSE") {
+        @queuedmsg = find_files();
+        foreach my $message (@queuedmsg) {
+            $AGI->stream_file($spooldir.'/new/'.$message, '#');
+            if (get_ack() == 1) {
+                ack_msg($message);
+            } else {
+                requeue();
+            }
         }
     }
 } else {

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use IO::Socket::SSL;
 use Data::Dumper;
-use Digest::MD5 qw(md5_base64);
+use Digest::MD5 qw(md5_hex);
 use Getopt::Long;
 use CGI::Util qw(escape);
 use LWP::UserAgent;
@@ -24,7 +24,7 @@ my $laddress = '::';
 my $outchannel = 'SIP';
 my $outcid = '';
 my $adminphone = '';
-my $language = 'en';
+my $language = 'en_US';
 my $spooldir = '/var/spool/nagiosmessages/';
 my $outdir = '/var/spool/asterisk/outgoing/';
 my $sslcert = '/etc/ssl/certs/ssl-cert-snakeoil.pem';
@@ -97,6 +97,13 @@ if(!($ssock = IO::Socket::SSL->new(
 $SIG{ALRM} = sub {
     foreach my $uuid (keys(%callqueue)) {
         my $number = $callqueue{$uuid};
+        my $sample = $spooldir.'/new/'.$number.'-'.$uuid.'.al';
+
+        unless (-e $sample) {
+            delete($callqueue{$uuid});
+            next;
+        }
+
         my $tmpfile = $spooldir.'/'.$uuid.'.call';
         my $dstfile = $outdir.'/'.$number.'.call';
         open TMPFILE, "+>$tmpfile";
@@ -108,6 +115,11 @@ $SIG{ALRM} = sub {
         print TMPFILE 'Application: AGI'."\n";
         print TMPFILE 'Data: nagios.agi,'.$outchannel.','.$number.','.$outcid."\n";
         close(TMPFILE);
+
+        if (-e $dstfile) {
+            unlink($tmpfile);
+            next;
+        }
 
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
@@ -231,7 +243,7 @@ sub master_process_command {
         $line =~ s/^\s+|\s+$//g;
         next if (length($line) == 0);
         $line = escape($line);
-        my $mp3_name = "/tmp/".md5_base64($line).'.mp3';
+        my $mp3_name = "/tmp/".md5_hex($line).'.mp3';
         if (-f $mp3_name) {
             push(@mp3list, $mp3_name);
             next;
@@ -253,18 +265,18 @@ sub master_process_command {
 
     @soxargs = ($sox, "-q", $wav_name);
 
-    my $tmpfile = $spooldir.'/tmp/'.$randnr.'.gsm';
-    my $dstfile = $spooldir.'/new/'.$vars{'NEWCALL'}.'-'.$randnr.'.gsm';
+    my $tmpfile = $spooldir.'/tmp/'.$randnr.'.al';
+    my $dstfile = $spooldir.'/new/'.$vars{'NEWCALL'}.'-'.$randnr.'.al';
     push(@soxargs, ($tmpfile));
     push(@soxargs, ("tempo", "-s", $speed)) if ($speed != 1);
-    push(@soxargs, ("rate", "8000"));
+    push(@soxargs, ("rate", "8k"));
 
     if (system(@soxargs) == 0) {
         unlink($wav_name);
         move($tmpfile, $dstfile) or die "Move failed $!";
         chown($auid,$agid,$dstfile);
 
-        $callqueue{$vars{'ID'}} = $vars{'NEWCALL'};
+        $callqueue{$randnr} = $vars{'NEWCALL'};
     }
 
 }
